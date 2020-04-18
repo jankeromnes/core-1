@@ -329,7 +329,7 @@ const std::shared_ptr<VectorGraphicData>& ImpGraphic::getVectorGraphicData() con
 
 void ImpGraphic::ImplCreateSwapInfo()
 {
-    if (!ImplIsSwapOut())
+    if (!isSwappedOut())
     {
         maSwapInfo.maPrefMapMode = ImplGetPrefMapMode();
         maSwapInfo.maPrefSize = ImplGetPrefSize();
@@ -736,7 +736,7 @@ Size ImpGraphic::ImplGetSizePixel() const
 {
     Size aSize;
 
-    if (ImplIsSwapOut())
+    if (isSwappedOut())
         aSize = maSwapInfo.maSizePixel;
     else
         aSize = ImplGetBitmapEx(GraphicConversionParameters()).GetSizePixel();
@@ -748,7 +748,7 @@ Size ImpGraphic::ImplGetPrefSize() const
 {
     Size aSize;
 
-    if (ImplIsSwapOut())
+    if (isSwappedOut())
     {
         aSize = maSwapInfo.maPrefSize;
     }
@@ -846,7 +846,7 @@ MapMode ImpGraphic::ImplGetPrefMapMode() const
 {
     MapMode aMapMode;
 
-    if (ImplIsSwapOut())
+    if (isSwappedOut())
     {
         aMapMode = maSwapInfo.maPrefMapMode;
     }
@@ -962,7 +962,7 @@ sal_uLong ImpGraphic::ImplGetSizeBytes() const
 void ImpGraphic::ImplDraw( OutputDevice* pOutDev, const Point& rDestPt ) const
 {
     ensureAvailable();
-    if( ImplIsSupportedGraphic() && !ImplIsSwapOut() )
+    if( ImplIsSupportedGraphic() && !isSwappedOut() )
     {
         switch( meType )
         {
@@ -999,7 +999,7 @@ void ImpGraphic::ImplDraw( OutputDevice* pOutDev,
                            const Point& rDestPt, const Size& rDestSize ) const
 {
     ensureAvailable();
-    if( ImplIsSupportedGraphic() && !ImplIsSwapOut() )
+    if( ImplIsSupportedGraphic() && !isSwappedOut() )
     {
         switch( meType )
         {
@@ -1042,7 +1042,7 @@ void ImpGraphic::ImplStartAnimation( OutputDevice* pOutDev, const Point& rDestPt
 {
     ensureAvailable();
 
-    if( ImplIsSupportedGraphic() && !ImplIsSwapOut() && mpAnimation )
+    if( ImplIsSupportedGraphic() && !isSwappedOut() && mpAnimation )
         mpAnimation->Start( pOutDev, rDestPt, rDestSize, nExtraData, pFirstFrameOutDev );
 }
 
@@ -1050,7 +1050,7 @@ void ImpGraphic::ImplStopAnimation( OutputDevice* pOutDev, long nExtraData )
 {
     ensureAvailable();
 
-    if( ImplIsSupportedGraphic() && !ImplIsSwapOut() && mpAnimation )
+    if( ImplIsSupportedGraphic() && !isSwappedOut() && mpAnimation )
         mpAnimation->Stop( pOutDev, nExtraData );
 }
 
@@ -1228,7 +1228,7 @@ bool ImpGraphic::ImplWriteEmbedded( SvStream& rOStm )
 
     ensureAvailable();
 
-    if( ( meType != GraphicType::NONE ) && ( meType != GraphicType::Default ) && !ImplIsSwapOut() )
+    if( ( meType != GraphicType::NONE ) && ( meType != GraphicType::Default ) && !isSwappedOut() )
     {
         const MapMode   aMapMode( ImplGetPrefMapMode() );
         const Size      aSize( ImplGetPrefSize() );
@@ -1300,11 +1300,11 @@ bool ImpGraphic::ImplWriteEmbedded( SvStream& rOStm )
     return bRet;
 }
 
-bool ImpGraphic::ImplSwapOut()
+bool ImpGraphic::swapOut()
 {
     bool bRet = false;
 
-    if( !ImplIsSwapOut() )
+    if (!isSwappedOut())
     {
         ::utl::TempFile     aTempFile;
         const INetURLObject aTmpURL( aTempFile.GetURL() );
@@ -1324,7 +1324,7 @@ bool ImpGraphic::ImplSwapOut()
                 xOStm->SetVersion( SOFFICE_FILEFORMAT_50 );
                 xOStm->SetCompressMode( SvStreamCompressFlags::NATIVE );
 
-                bRet = ImplSwapOut( xOStm.get() );
+                bRet = swapOutToStream(xOStm.get());
                 if( bRet )
                 {
                     mpSwapFile = std::make_unique<ImpSwapFile>();
@@ -1345,7 +1345,7 @@ bool ImpGraphic::ImplSwapOut()
     return bRet;
 }
 
-bool ImpGraphic::ImplSwapOut( SvStream* xOStm )
+bool ImpGraphic::swapOutToStream(SvStream* xOStm)
 {
     bool bRet = false;
 
@@ -1377,8 +1377,8 @@ bool ImpGraphic::ensureAvailable() const
 {
     auto pThis = const_cast<ImpGraphic*>(this);
 
-    if (ImplIsSwapOut())
-        return pThis->ImplSwapIn();
+    if (isSwappedOut())
+        return pThis->swapIn();
 
     pThis->maLastUsed = std::chrono::high_resolution_clock::now();
     return true;
@@ -1408,11 +1408,11 @@ bool ImpGraphic::loadPrepared()
     return false;
 }
 
-bool ImpGraphic::ImplSwapIn()
+bool ImpGraphic::swapIn()
 {
     bool bRet = false;
 
-    if (!ImplIsSwapOut())
+    if (!isSwappedOut())
         return bRet;
 
     if (mbPrepared)
@@ -1442,7 +1442,7 @@ bool ImpGraphic::ImplSwapIn()
                 xIStm->SetVersion( SOFFICE_FILEFORMAT_50 );
                 xIStm->SetCompressMode( SvStreamCompressFlags::NATIVE );
 
-                bRet = ImplSwapIn( xIStm.get() );
+                bRet = swapInFromStream(xIStm.get());
                 xIStm.reset();
                 if (mpSwapFile)
                     setOriginURL(mpSwapFile->maOriginURL);
@@ -1457,7 +1457,7 @@ bool ImpGraphic::ImplSwapIn()
     return bRet;
 }
 
-bool ImpGraphic::ImplSwapIn( SvStream* xIStm )
+bool ImpGraphic::swapInFromStream(SvStream* xIStm)
 {
     bool bRet = false;
 
@@ -1531,7 +1531,7 @@ BitmapChecksum ImpGraphic::ImplGetChecksum() const
 
     ensureAvailable();
 
-    if( ImplIsSupportedGraphic() && !ImplIsSwapOut() )
+    if( ImplIsSupportedGraphic() && !isSwappedOut() )
     {
         switch( meType )
         {
@@ -1567,7 +1567,7 @@ bool ImpGraphic::ImplExportNative( SvStream& rOStm ) const
 
     if( !rOStm.GetError() )
     {
-        if( !ImplIsSwapOut() )
+        if( !isSwappedOut() )
         {
             if( mpGfxLink && mpGfxLink->IsNative() )
                 bResult = mpGfxLink->ExportNative( rOStm );
@@ -1761,7 +1761,7 @@ void WriteImpGraphic(SvStream& rOStm, const ImpGraphic& rImpGraphic)
 
     rImpGraphic.ensureAvailable();
 
-    if (rImpGraphic.ImplIsSwapOut())
+    if (rImpGraphic.isSwappedOut())
     {
         rOStm.SetError( SVSTREAM_GENERALERROR );
         return;
